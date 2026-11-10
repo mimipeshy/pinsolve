@@ -1,9 +1,23 @@
 "use client";
-import {useState} from "react";
+import {useState, useEffect} from "react";
 
 
 export default function Home() {
   const[image,setImage] = useState<File | null>(null);
+  const[previewUrl,setPreviewUrl] = useState<string | null>(null);
+  useEffect(()=>{
+    if(!image){
+      setPreviewUrl(null);
+      return;
+    }
+    const objectUrl = URL.createObjectURL(image);
+    setPreviewUrl(objectUrl);
+    return()=>{
+      URL.revokeObjectURL(objectUrl);
+    };
+  },[image]);
+
+
   return (
    <main className="flex min-h-screen flex-col items-center justify-center p-8">
       <h1 className="text-4xl font-bold">PinSolve AI</h1>
@@ -13,11 +27,11 @@ export default function Home() {
       <div className="mt-4 w-full max-w-xl rounded-2xl border border-dashed p-8 text-center">
       <p className="text-lg font-medium"> Drag your Product Image Here</p>
       <p className="mt-2 text-sm text-gray-500">or browse files</p> 
-      {image && (
+      {previewUrl && (
         <img
-          src={URL.createObjectURL(image)}
+          src={previewUrl}
           alt="Uploaded Image"
-          className="mx-auto mb-4 h-48 w-48 object-cover rounded-lg"
+          className="mx-auto max-h-64 rounded-lg"
         />
       )} 
       <input
