@@ -3,17 +3,19 @@ import { useState, useEffect } from "react";
 
 
 export default function Home() {
+  // State variables to manage the uploaded image, preview URL, error messages, product name, and target audience
   const [image, setImage] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [productName, setProductName] = useState<string | null>(null);
-  const[targetAudience, setTargetAudience] = useState('')
-
+  const [productName, setProductName] = useState("");
+  const [targetAudience, setTargetAudience] = useState("");
+//preview image when user uploads an image
   useEffect(() => {
     if (!image) {
       setPreviewUrl(null);
       return;
     }
+    // Create a URL for the uploaded image to display as a preview
     const objectUrl = URL.createObjectURL(image);
     setPreviewUrl(objectUrl);
     return () => {
@@ -22,6 +24,24 @@ export default function Home() {
   }, [image]);
 
 
+  //generate pins function
+  function generatePins() 
+  // Validate that all required information is provided before proceeding  
+  {
+    setError(null);
+    if (!image) {
+      setError('Please upload a product image before generating pins.');
+      return;
+    }
+    // Create a FormData object to send the image and other data to the server
+    const formData= new FormData();
+    formData.append("image", image);
+    formData.append("productName", productName);
+    formData.append("targetAudience", targetAudience);
+    console.log('Generating pins for:', { image, productName, targetAudience });
+  }
+  
+  // Render the main content of the page
   return (
     <main className="flex min-h-screen flex-col items-center justify-center p-8">
       <h1 className="text-4xl font-bold">PinSolve AI</h1>
@@ -31,6 +51,7 @@ export default function Home() {
       <div className="mt-4 w-full max-w-xl rounded-2xl border border-dashed p-8 text-center">
         <p className="text-lg font-medium"> Drag your Product Image Here</p>
         <p className="mt-2 text-sm text-gray-500">or browse files</p>
+        {/* // Display the preview of the uploaded image if available */}
         {previewUrl && (
           <img
             src={previewUrl}
@@ -69,7 +90,7 @@ export default function Home() {
         <input type="text"
           placeholder="Enter Product Name"
           className="mt-2 w-full rounded-lg border p-3"
-          value={productName || ''}
+          value={productName}
           onChange={(e) => {
             setProductName(e.target.value)
           }}
@@ -80,7 +101,7 @@ export default function Home() {
         <input type="text"
           placeholder="Moms with kids running daily errands"
           className="mt-2 w-full rounded-lg border p-3"
-          value={targetAudience || ''}
+          value={targetAudience}
           onChange={(e) => {
             setTargetAudience(e.target.value)
           }}
@@ -88,7 +109,8 @@ export default function Home() {
         <button
           type="button"
           disabled={!image}
-          className="mt-6 rounded-lg bg-blue-600 px-6 py-3 text-white disabled:opacity-50">
+          className="mt-6 rounded-lg bg-blue-600 px-6 py-3 text-white disabled:opacity-50"
+          onClick={generatePins}>
             Generate Pins
           </button>
           </div>
