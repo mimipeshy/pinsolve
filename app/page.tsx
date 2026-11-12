@@ -40,7 +40,7 @@ export default function Home() {
 
     setPreviewUrl(objectUrl);
 
-    // Release the previous temporary URL when it is no longer needed
+    // Release the temporary URL when it is no longer needed
     return () => {
       URL.revokeObjectURL(objectUrl);
     };
@@ -50,7 +50,7 @@ export default function Home() {
 
   // 3. GENERATE PINS FUNCTION
 
-  function generatePins() {
+  async function generatePins() {
 
     // Clear any previous error message
     setError(null);
@@ -73,14 +73,34 @@ export default function Home() {
     // Add the optional target audience
     formData.append("targetAudience", targetAudience);
 
-    // Log the submitted information for frontend testing
-    console.log("Generating pins for:", {
-      image,
-      productName,
-      targetAudience
-    });
+    // TRY/CATCH HANDLES ERRORS DURING THE REQUEST
+    try {
 
-    // Next step: Send formData to our Next.js API using fetch()
+      // Send the image and product information to our backend API
+      const response = await fetch("/api/analyze", {
+        method: "POST",
+        body: formData,
+      });
+
+      // Check whether the server returned a successful HTTP status
+      if (!response.ok) {
+        throw new Error("Server request failed");
+      }
+
+      // Convert the server's JSON response into a JavaScript object
+      const result = await response.json();
+
+      // Display the response in the browser console
+      console.log("Server data received:", result);
+
+    } catch (error) {
+
+      // Log the error for debugging
+      console.error("Error sending data to server:", error);
+
+      // Display a friendly error message in the interface
+      setError("Something went wrong. Please try again.");
+    }
   }
 
 
@@ -159,7 +179,6 @@ export default function Home() {
             // Clear previous errors and save the valid image
             setError(null);
             setImage(file);
-
           }}
         />
 
