@@ -218,7 +218,7 @@ export async function POST(request: Request) {
 
         const message = await anthropic.messages.create({
             model: "claude-sonnet-4-6",
-            max_tokens: 4000,
+            max_tokens: 2500,
             messages: [
                 {
                     role: "user",
@@ -247,7 +247,12 @@ Important rules:
 - Do not assume product availability or country of origin.
 - Do not guess quantities or sizes if they are not clearly readable.
 - Separate visible facts from assumptions.
-- If uncertain, say so.`
+- If uncertain, say so.
+- Never introduce product details, quantities, age ranges,materials, or specifications that are not supported
+by the product analysis.
+-Marketing creativity is encouraged, but factual claims
+must remain grounded in the available evidence.
+`
                         }
                     ]
                 }
