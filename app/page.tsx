@@ -21,7 +21,11 @@ export default function Home() {
   const [productName, setProductName] = useState("");
 
   // Stores the intended target audience
-  const [targetAudience, setTargetAudience] = useState("");
+  //trach if pinsolveai is processing a request
+  const [targetAudience, setTargetAudience] = useState('');
+
+  // Indicates whether the application is currently processing a request
+  const [isLoading, setIsLoading] = useState(false);
 
 
   // 2. IMAGE PREVIEW MANAGEMENT
@@ -60,7 +64,9 @@ export default function Home() {
       setError("Please upload a product image before generating pins.");
       return;
     }
-
+    // Indicate that the application is now processing the request
+    setIsLoading(true);
+    
     // Create FormData to package the image and product information
     const formData = new FormData();
 
@@ -100,6 +106,10 @@ export default function Home() {
 
       // Display a friendly error message in the interface
       setError("Something went wrong. Please try again.");
+    }
+    finally {
+      // Regardless of success or failure, indicate that processing is complete
+      setIsLoading(false);
     }
   }
 
@@ -218,11 +228,11 @@ export default function Home() {
         {/* Generate Pins button */}
         <button
           type="button"
-          disabled={!image}
+          disabled={!image || isLoading}
           className="mt-6 rounded-lg bg-blue-600 px-6 py-3 text-white disabled:opacity-50"
           onClick={generatePins}
         >
-          Generate Pins
+          {isLoading ? "Generating..." : "Generate Pins"}
         </button>
 
       </div>
