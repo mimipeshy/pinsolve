@@ -1,7 +1,6 @@
 
 "use client";
 
-import { IMAGES_MANIFEST } from "next/dist/shared/lib/constants";
 // Import React hooks for managing state and side effects
 import { useState, useEffect } from "react";
 
@@ -24,6 +23,8 @@ export default function Home() {
   // Stores the intended target audience
   //trach if pinsolveai is processing a request
   const [targetAudience, setTargetAudience] = useState('');
+  
+  const [productDescription, setProductDescription] = useState('');
 
   // Indicates whether the application is currently processing a request
   const [isLoading, setIsLoading] = useState(false);
@@ -87,6 +88,8 @@ export default function Home() {
     // Add the optional product name
     formData.append("productName", productName);
 
+    formData.append("productDescription", productDescription);
+
     // Add the optional target audience
     formData.append("targetAudience", targetAudience);
 
@@ -101,7 +104,9 @@ export default function Home() {
 
       // Check whether the server returned a successful HTTP status
       if (!response.ok) {
-        throw new Error("Server request failed");
+         const errorData = await response.json();
+  console.error("Server error:", errorData);
+  throw new Error(errorData.message || "Server request failed");
       }
 
       // Convert the server's JSON response into a JavaScript object
@@ -226,13 +231,11 @@ export default function Home() {
               2. Tell us about your product
             </h3>
             <p className="mt-1 text-sm text-gray-500">
-              Additional information helps us create more rlevant marketing angles.
+                Tell us about your product so we can create accurate, relevant and compelling Pinterest marketing angles.
             </p>
+            {/*product name- required*/}
             <label className ="mt-5 block text-sm font-medium">
-              Product Name
-              <span className="ml-1 font-normal text-gray-400">
-                (Optional)
-              </span>
+              Product Name *
             </label>
             <input
               type="text"
@@ -240,6 +243,19 @@ export default function Home() {
               className="mt-2 w-full rounded-lg border border-gray-300 bg-white p-3 text-sm outline-none transition focus:border-[#397653] focus:ring-2 focus:ring-green-100"
               value={productName}
               onChange={(e)=>setProductName(e.target.value)}
+              />
+
+              {/*product description - required*/}Desc
+              <label className="mt-5 block text-sm font-medium">
+                Product Description *
+              </label>
+              <textarea
+              placeholder="A 6-quart air fryer designed for family cooking. It offers multiple cooking functions, including air frying, roasting and reheating. It helps prepare crispy meals with less oil and makes everyday meal preparation easier"
+              rows={(4)}
+              className="mt-2 w-full rounded-lg border border-gray-300 bg-white p-3 text-sm outline-none transition
+              focus:border-[#397653] focus:ring-2 focus:ring-green-100"
+              value={productDescription}
+              onChange={(e)=>setProductDescription(e.target.value)}
               />
               <label className="mt-5 block text-sm font-medium">
                 Target Audience
@@ -259,9 +275,9 @@ export default function Home() {
           {/*generate button*/}
           <button
             type="button"
-            disabled ={!image || isLoading}
-            className="mt-8 w-full roundedd-xl bg-[#174d36] px-6 py-4 font-semibold
-            text-white transition hover:bg-[#236345] disbled:cursor-not-allowed disabled:opacity-50"
+            disabled ={!image || !productName.trim() || !productDescription.trim()|| isLoading}
+            className="mt-8 w-full rounded-xl bg-[#174d36] px-6 py-4 font-semibold
+            text-white transition hover:bg-[#236345] disabled:cursor-not-allowed disabled:opacity-50"
             onClick={generatePins}>
               {isLoading ? "Analysing your product......"
               :"Analyze Product & Generate Angles"}
@@ -270,6 +286,99 @@ export default function Home() {
               Three distinct marketing approached for every product.
             </p>
         </div>
+        {/*marketing angles*/}
+       {marketingAngles.length > 0 && (
+          <div className="mt-10">
+
+            <div className="mb-6">
+              <p className="text-sm font-semibold uppercase tracking-wider text-[#397653]">
+                Your marketing strategy
+              </p>
+
+              <h2 className="mt-2 text-2xl font-bold">
+                Three ways to reach your audience
+              </h2>
+
+              <p className="mt-2 text-gray-600">
+                Choose the marketing angle you want to develop into a Pinterest pin.
+              </p>
+            </div>
+
+            <div className="grid gap-5">
+
+              {marketingAngles.map((angle, index) => (
+                <button
+                  key={angle.angle_type}
+                  type="button"
+                  onClick={() => setSelectedAngle(index)}
+                  className={`w-full rounded-2xl border-2 p-6 text-left transition ${
+                    selectedAngle === index
+                      ? "border-[#174D36] bg-[#EDF5EE] shadow-md"
+                      : "border-gray-200 bg-white hover:border-[#A8C6AF]"
+                  }`}
+                >
+
+                  <div className="flex items-center justify-between gap-3">
+
+                    <span className="text-xs font-semibold uppercase tracking-wider text-[#397653]">
+                      {angle.angle_type.replace("-", " ")}
+                    </span>
+
+                    {selectedAngle === index && (
+                      <span className="rounded-full bg-[#174D36] px-3 py-1 text-xs font-medium text-white">
+                        Selected
+                      </span>
+                    )}
+
+                  </div>
+
+                  <h3 className="mt-3 text-lg font-bold text-gray-900">
+                    {angle.angle_name}
+                  </h3>
+
+                  <p className="mt-3 text-sm leading-relaxed text-gray-700">
+                    {angle.marketing_message}
+                  </p>
+
+                  <div className="mt-5 rounded-lg bg-gray-50 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                      Pinterest hook
+                    </p>
+
+                    <p className="mt-2 text-sm font-medium text-gray-800">
+                      {angle.pinterest_hook}
+                    </p>
+                  </div>
+
+                  <div className="mt-4">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                      Target audience
+                    </p>
+
+                    <p className="mt-1 text-sm text-gray-700">
+                      {angle.target_audience}
+                    </p>
+                  </div>
+
+                </button>
+              ))}
+
+            </div>
+          </div>
+        )}
+        {selectedAngle !==null&&(
+          <div className="mt-6">
+            <button
+              type="button"
+              onClick={()=>{
+                const chosenAngle= marketingAngles[selectedAngle];
+                console.log("Selected Marketing Angle:", chosenAngle);
+              }}
+            className="w-full rounded-xl bg-[#174D36] px-6 py-4 font-semibold text-white transition hover:bg-[#236345]">
+              Continue with this angle →
+            </button>            
+        </div>
+        )}
       </section>
     </main>
   );
