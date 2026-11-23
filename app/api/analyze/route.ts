@@ -331,13 +331,13 @@ Keep the analysis clear, specific and useful for creating Pinterest marketing co
 
         // STEP 9: Generate three marketing angles
 
-        const marketingAngles = await generateMarketingAngles(
-            productAnalysis,
-            productName,
-            targetAudience
-        );
+        // const marketingAngles = await generateMarketingAngles(
+        //     productAnalysis,
+        //     productName,
+        //     targetAudience
+        // );
 
-        console.log("Marketing angles generated:", marketingAngles);
+        // console.log("Marketing angles generated:", marketingAngles);
 
 
         // STEP 10: Return both results to the frontend
@@ -345,7 +345,7 @@ Keep the analysis clear, specific and useful for creating Pinterest marketing co
         return Response.json({
             success: true,
             analysis: productAnalysis,
-            marketingAngles: marketingAngles
+            // marketingAngles: marketingAngles
         });
 
     } catch (error) {

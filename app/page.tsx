@@ -1,386 +1,405 @@
-
 "use client";
 
-// Import React hooks for managing state and side effects
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
+
+type MarketingAngle = {
+  angle_type: string;
+  angle_name: string;
+  target_audience: string;
+  audience_motivation: string;
+  marketing_message: string;
+  pinterest_hook: string;
+};
+
+type PinterestContent = {
+  pin_title: string;
+  pin_description: string;
+  keywords: string[];
+  cta: string;
+  pin_hook: string;
+};
+
 
 export default function Home() {
-
-  // 1. STATE MANAGEMENT
-
-  // Stores the actual uploaded image file
+  // Product upload and details
   const [image, setImage] = useState<File | null>(null);
-
-  // Stores a temporary URL used to display the image preview
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-
-  // Stores validation or other error messages
   const [error, setError] = useState<string | null>(null);
-
-  // Stores the product name entered by the user
   const [productName, setProductName] = useState("");
+  const [targetAudience, setTargetAudience] = useState("");
+  const [productDescription, setProductDescription] = useState("");
 
-  // Stores the intended target audience
-  //trach if pinsolveai is processing a request
-  const [targetAudience, setTargetAudience] = useState('');
-  
-  const [productDescription, setProductDescription] = useState('');
 
-  // Indicates whether the application is currently processing a request
+  // Product analysis and approval
+  const [productAnalysis, setProductAnalysis] = useState("");
+  const [isAnalysisApproved, setIsAnalysisApproved] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  // Stores the marketing angles returned from the server
-  type MarketingAngle = {
-    angle_type: string;
-    angle_name: string,
-    target_audience: string;
-    audience_motivation: string;
-    marketing_message: string;
-    pinterest_hook: string;
-  };
+
+  // Marketing angle generation and selection
   const [marketingAngles, setMarketingAngles] = useState<MarketingAngle[]>([]);
-  // Stores the index of the selected marketing angle
   const [selectedAngle, setSelectedAngle] = useState<number | null>(null);
-  // 2. IMAGE PREVIEW MANAGEMENT
+  const [chosenAngle, setChosenAngle] = useState<MarketingAngle | null>(null);
+  const [isGeneratingAngles, setIsGeneratingAngles] = useState(false);
+  const [angleError, setAngleError] = useState<string | null>(null);
 
-  // Runs whenever the selected image changes
+  // Pinterest content state (used in the next stage)
+  const [pinterestContent, setPinterestContent] = useState<PinterestContent | null>(null);
+  const [isGeneratingContent, setIsGeneratingContent] = useState(false);
+  const [contentError, setContentError] = useState<string | null>(null);
+
+
+  // Create and clean up the uploaded image preview URL
   useEffect(() => {
-
-    // If no image exists, clear the preview
     if (!image) {
       setPreviewUrl(null);
       return;
     }
 
-    // Create a temporary URL for displaying the uploaded image
     const objectUrl = URL.createObjectURL(image);
-
     setPreviewUrl(objectUrl);
 
-    // Release the temporary URL when it is no longer needed
-    return () => {
-      URL.revokeObjectURL(objectUrl);
-    };
-
+    return () => URL.revokeObjectURL(objectUrl);
   }, [image]);
 
 
-  // 3. GENERATE PINS FUNCTION
-
-  async function generatePins() {
-
-    // Clear any previous error message
+  // Request product analysis from the backend
+  async function analyzeProduct() {
     setError(null);
 
-    // Ensure an image has been uploaded before proceeding
     if (!image) {
-      setError("Please upload a product image before generating pins.");
+      setError("Please upload a product image before continuing.");
       return;
     }
-    // Indicate that the application is now processing the request
+
     setIsLoading(true);
-
-    // Create FormData to package the image and product information
     const formData = new FormData();
-
-    // Add the actual image file
     formData.append("image", image);
-
-    // Add the optional product name
     formData.append("productName", productName);
-
     formData.append("productDescription", productDescription);
-
-    // Add the optional target audience
     formData.append("targetAudience", targetAudience);
 
-    // TRY/CATCH HANDLES ERRORS DURING THE REQUEST
     try {
-
-      // Send the image and product information to our backend API
       const response = await fetch("/api/analyze", {
         method: "POST",
         body: formData,
       });
 
-      // Check whether the server returned a successful HTTP status
-      if (!response.ok) {
-         const errorData = await response.json();
-  console.error("Server error:", errorData);
-  throw new Error(errorData.message || "Server request failed");
-      }
-
-      // Convert the server's JSON response into a JavaScript object
       const result = await response.json();
-      if (!result.success) {
-        throw new Error(result.message || "Product analysis failed");
+      if (!response.ok || !result.success) {
+        throw new Error(result.message || "Product analysis failed.");
       }
-      setMarketingAngles(result.marketingAngles);
-      setSelectedAngle(null); // Reset selected angle when new angles are generated
-      // Display the response in the browser console
-      console.log("Product analysis result:", result.analysis);
-      console.log("Marketing angles:", result.marketingAngles);
 
-    } catch (error) {
-
-      // Log the error for debugging
-      console.error("Error sending data to server:", error);
-
-      // Display a friendly error message in the interface
-      setError("Something went wrong. Please try again.");
-    }
-    finally {
-      // Regardless of success or failure, indicate that processing is complete
+      setProductAnalysis(result.analysis);
+      setIsAnalysisApproved(false);
+      setMarketingAngles([]);
+      setSelectedAngle(null);
+      setChosenAngle(null);
+      setPinterestContent(null);
+      setContentError(null);
+    } catch (err) {
+      console.error("Product analysis error:", err);
+      setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
+    } finally {
       setIsLoading(false);
     }
   }
 
 
-  // 4. RENDER THE USER INTERFACE
+  // Generate three marketing angles from the approved product analysis
+  async function generateAngles() {
+    if (!isAnalysisApproved || !productAnalysis.trim()) return;
+
+    setIsGeneratingAngles(true);
+    setAngleError(null);
+
+    try {
+      const response = await fetch("/api/angles", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ productName, productAnalysis, targetAudience }),
+      });
+
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        throw new Error(result.message || "Failed to generate marketing angles.");
+      }
+      if (!Array.isArray(result.marketingAngles)) {
+        throw new Error("The server returned an unexpected marketing angles response.");
+      }
+
+      setMarketingAngles(result.marketingAngles);
+      setSelectedAngle(null);
+      setChosenAngle(null);
+      setPinterestContent(null);
+    } catch (err) {
+      console.error("Angle generation error:", err);
+      setAngleError(err instanceof Error ? err.message : "Something went wrong while generating marketing angles.");
+    } finally {
+      setIsGeneratingAngles(false);
+    }
+  }
+
+
+  // Carry the selected marketing angle into the next stage
+  function continueWithAngle() {
+    if (selectedAngle === null || !marketingAngles[selectedAngle]) return;
+
+    const angle = marketingAngles[selectedAngle];
+    setChosenAngle(angle);
+    setPinterestContent(null);
+    setContentError(null);
+    console.log("Chosen marketing angle:", angle);
+  }
+
 
   return (
-    <main className="min-h-screeen bg-[#F7F8F3] text-gray-900 p-8 flex flex-col items-center">
-
-      {/* header*/}
-      <header className="bg-[#174d36] px-6 py-8 text-white">
+    <main className="min-h-screen bg-[#F7F8F3] text-gray-900">
+      <header className="bg-[#174D36] px-6 py-8 text-white">
         <div className="mx-auto max-w-6xl text-center">
-          <h1 className="text-3xl font-bold tracking-tight" >
-            PinSolve AI
-          </h1>
-          <p className="mt-2 max-w-xl text-sm text-green-100">
-            Turn product photos into Pinterest-worthy pins. Discover new audiences and create marketing angles
-            that help your products stand out.
+          <h1 className="text-3xl font-bold tracking-tight">PinSolve AI</h1>
+          <p className="mt-2 mx-auto max-w-xl text-sm text-green-100">
+            Turn product photos into Pinterest-worthy pins. Discover new audiences and create marketing angles that help your products stand out.
           </p>
         </div>
       </header>
+
+
       <section className="mx-auto max-w-3xl px-5 py-10">
         <div className="mb-8">
-          <p className="text-sm font-semibold uppercase tracking-wide text-[#397653] text-center">
-            Create Campaign
-          </p>
-          <h2 className="mt-2 text-2xl font-bold text-center">
-            Let's get started with your product image
-          </h2>
-          <p className="mt-2 text-gray-600 text-center">
-            Upload a product image and provide a product name and target audience. PinSolve AI will analyze the image and generate marketing angles to help you create compelling Pinterest pins.
+          <p className="text-center text-sm font-semibold uppercase tracking-wide text-[#397653]">Create Campaign</p>
+          <h2 className="mt-2 text-center text-2xl font-bold">Let&apos;s get started with your product image</h2>
+          <p className="mt-2 text-center text-gray-600">
+            Upload a product image and provide its details. PinSolve AI will analyze the product and generate marketing angles to help you create compelling Pinterest pins.
           </p>
         </div>
-        {/*UPLOAD CARD*/}
+
+
+        {/* Product upload and details */}
         <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm sm:p-8">
-          <h3 className="textlg font-semibold">
-            1. Upload your product image
-          </h3>
-          <p className="text-lg font-semibold">
-            PNG or JPG only, under 5MB.
-          </p>
-          {/*image upload area*/}
+          <h3 className="text-lg font-semibold">1. Upload your product image</h3>
+          <p className="mt-1 text-sm text-gray-500">PNG or JPG only, under 5MB.</p>
+
           <div className="mt-5 rounded-xl border-2 border-dashed border-[#A8C6AF] bg-[#F7FAF6] p-8 text-center">
-            <div className="text-4xl text-[#397653]">
-              ↑
-            </div>
-            <p className="mt-3 font-medium">
-              Drag your product image here
-            </p>
-            <p className="mt-1 text-sm text-gray-500">
-              Or Browse files from your computer
-            </p>
+            <div className="text-4xl text-[#397653]">↑</div>
+            <p className="mt-3 font-medium">Upload your product image</p>
+            <p className="mt-1 text-sm text-gray-500">Browse files from your computer</p>
             {previewUrl && (
               <div className="mt-5">
-                <img
-                  src={previewUrl}
-                  alt="Uploaded product preview"
-                  className="=mx-auto max-h-64 rounded-xl object-contain"
-                /></div>
+                <img src={previewUrl} alt="Uploaded product preview" className="mx-auto max-h-64 rounded-xl object-contain" />
+              </div>
             )}
             <input
-              className="mx-auto mt-5 block max-w-full text-sm text-gray-600 file:mr-3 file:rounded-lg file:border-0 file:bg-[#74d36] file:px-4 file:py-2
-              file:font-medium file:text-white hover:file:bg-[#236345]"
+              className="mx-auto mt-5 block max-w-full text-sm text-gray-600 file:mr-3 file:rounded-lg file:border-0 file:bg-[#397653] file:px-4 file:py-2 file:font-medium file:text-white hover:file:bg-[#236345]"
               type="file"
               accept="image/png, image/jpeg"
               onChange={(e) => {
                 const file = e.target.files?.[0];
                 if (!file) return;
                 e.target.value = "";
-                if (
-                  !["image/png", "image/jpeg"].includes(file.type) ||
-                  file.size === 0 ||
-                  file.size > 5 * 1024 * 1024
-                ) {
-                  setError(
-                    "Please upload a valid PNG or JPG image under 5MB"
-                  );
+                if (!["image/png", "image/jpeg"].includes(file.type) || file.size === 0 || file.size > 5 * 1024 * 1024) {
+                  setError("Please upload a valid PNG or JPG image under 5MB.");
                   setImage(null);
                   return;
                 }
                 setError(null);
+                setProductAnalysis("");
+                setIsAnalysisApproved(false);
                 setMarketingAngles([]);
                 setSelectedAngle(null);
+                setChosenAngle(null);
+                setPinterestContent(null);
                 setImage(file);
-
               }}
             />
           </div>
-          {/*error message*/}
-          {error &&(
-            <p className="mt-4 rounded-lg- bg-red-50 p-3 text-sm text-red-600">
-              {error}
-            </p>
-          )}
-          {/*product details*/}
+
+
+          {error && <p className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-600">{error}</p>}
+
+
+          {/* Product information */}
           <div className="mt-8">
-            <h3 className="text-lg font-semibold">
-              2. Tell us about your product
-            </h3>
+            <h3 className="text-lg font-semibold">2. Tell us about your product</h3>
             <p className="mt-1 text-sm text-gray-500">
-                Tell us about your product so we can create accurate, relevant and compelling Pinterest marketing angles.
+              Give us details so PinSolve can create accurate, relevant and compelling marketing angles.
             </p>
-            {/*product name- required*/}
-            <label className ="mt-5 block text-sm font-medium">
-              Product Name *
-            </label>
+
+            <label className="mt-5 block text-sm font-medium" htmlFor="productName">Product Name *</label>
             <input
+              id="productName"
               type="text"
               placeholder="e.g. Ninja Air Fryer"
               className="mt-2 w-full rounded-lg border border-gray-300 bg-white p-3 text-sm outline-none transition focus:border-[#397653] focus:ring-2 focus:ring-green-100"
               value={productName}
-              onChange={(e)=>setProductName(e.target.value)}
-              />
+              onChange={(e) => setProductName(e.target.value)}
+            />
 
-              {/*product description - required*/}Desc
-              <label className="mt-5 block text-sm font-medium">
-                Product Description *
-              </label>
-              <textarea
-              placeholder="A 6-quart air fryer designed for family cooking. It offers multiple cooking functions, including air frying, roasting and reheating. It helps prepare crispy meals with less oil and makes everyday meal preparation easier"
-              rows={(4)}
-              className="mt-2 w-full rounded-lg border border-gray-300 bg-white p-3 text-sm outline-none transition
-              focus:border-[#397653] focus:ring-2 focus:ring-green-100"
+            <label className="mt-5 block text-sm font-medium" htmlFor="productDescription">Product Description *</label>
+            <textarea
+              id="productDescription"
+              placeholder="Describe the product, its features and what it does..."
+              rows={4}
+              className="mt-2 w-full rounded-lg border border-gray-300 bg-white p-3 text-sm outline-none transition focus:border-[#397653] focus:ring-2 focus:ring-green-100"
               value={productDescription}
-              onChange={(e)=>setProductDescription(e.target.value)}
-              />
-              <label className="mt-5 block text-sm font-medium">
-                Target Audience
-                <span className="ml-1 font-normal text-gray-400">
-                  (Optional)
-                </span>
-              </label>
-              <input
-                type="text"
-                placeholder="e.g. Busy parents and Families"
-                className="mt-2 w-full rounded-lg border border-gray-300 bg-white p-3 text-sm outline-none
-                transition focus:border-[#397653] focus:ring-2 focus:ring-green-100"
-                value={targetAudience}
-                onChange={(e)=> setTargetAudience(e.target.value)}
-                />
+              onChange={(e) => setProductDescription(e.target.value)}
+            />
+
+            <label className="mt-5 block text-sm font-medium" htmlFor="targetAudience">
+              Target Audience <span className="ml-1 font-normal text-gray-400">(Optional)</span>
+            </label>
+            <input
+              id="targetAudience"
+              type="text"
+              placeholder="e.g. Busy parents and families"
+              className="mt-2 w-full rounded-lg border border-gray-300 bg-white p-3 text-sm outline-none transition focus:border-[#397653] focus:ring-2 focus:ring-green-100"
+              value={targetAudience}
+              onChange={(e) => setTargetAudience(e.target.value)}
+            />
           </div>
-          {/*generate button*/}
+
+
+          {/* Analyze product button */}
           <button
             type="button"
-            disabled ={!image || !productName.trim() || !productDescription.trim()|| isLoading}
-            className="mt-8 w-full rounded-xl bg-[#174d36] px-6 py-4 font-semibold
-            text-white transition hover:bg-[#236345] disabled:cursor-not-allowed disabled:opacity-50"
-            onClick={generatePins}>
-              {isLoading ? "Analysing your product......"
-              :"Analyze Product & Generate Angles"}
-            </button>
-            <p className="mt-3 text-center text-xs text-gray-400">
-              Three distinct marketing approached for every product.
-            </p>
+            disabled={!image || !productName.trim() || !productDescription.trim() || isLoading}
+            className="mt-8 w-full rounded-xl bg-[#174D36] px-6 py-4 font-semibold text-white transition hover:bg-[#236345] disabled:cursor-not-allowed disabled:opacity-50"
+            onClick={analyzeProduct}
+          >
+            {isLoading ? "Analyzing your product..." : "Analyze Product"}
+          </button>
+          <p className="mt-3 text-center text-xs text-gray-400">Three distinct marketing approaches for every product.</p>
         </div>
-        {/*marketing angles*/}
-       {marketingAngles.length > 0 && (
-          <div className="mt-10">
 
+
+        {/* Product analysis review and approval */}
+        {productAnalysis && (
+          <div className="mt-10 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm sm:p-8">
             <div className="mb-6">
-              <p className="text-sm font-semibold uppercase tracking-wider text-[#397653]">
-                Your marketing strategy
-              </p>
-
-              <h2 className="mt-2 text-2xl font-bold">
-                Three ways to reach your audience
-              </h2>
-
+              <p className="text-sm font-semibold uppercase tracking-wider text-[#397653]">AI Product Analysis</p>
+              <h2 className="mt-2 text-2xl font-bold">Review your product information</h2>
               <p className="mt-2 text-gray-600">
-                Choose the marketing angle you want to develop into a Pinterest pin.
+                Check the analysis below and correct anything that needs adjustment. PinSolve AI will use your approved information to create marketing angles.
               </p>
             </div>
 
-            <div className="grid gap-5">
+            <label className="block text-sm font-medium text-gray-700" htmlFor="productAnalysis">Product Analysis</label>
+            <textarea
+              id="productAnalysis"
+              value={productAnalysis}
+              onChange={(e) => {
+                setProductAnalysis(e.target.value);
+                setIsAnalysisApproved(false);
+                setMarketingAngles([]);
+                setSelectedAngle(null);
+                setChosenAngle(null);
+                setPinterestContent(null);
+              }}
+              rows={16}
+              className="mt-2 w-full rounded-xl border border-gray-300 bg-white p-4 text-sm leading-relaxed outline-none transition focus:border-[#397653] focus:ring-2 focus:ring-green-100"
+            />
 
-              {marketingAngles.map((angle, index) => (
+            <div className="mt-6 space-y-4">
+              <div className="flex justify-end">
                 <button
-                  key={angle.angle_type}
                   type="button"
-                  onClick={() => setSelectedAngle(index)}
-                  className={`w-full rounded-2xl border-2 p-6 text-left transition ${
-                    selectedAngle === index
-                      ? "border-[#174D36] bg-[#EDF5EE] shadow-md"
-                      : "border-gray-200 bg-white hover:border-[#A8C6AF]"
-                  }`}
+                  onClick={() => setIsAnalysisApproved(true)}
+                  disabled={!productAnalysis.trim()}
+                  className="rounded-xl bg-[#174D36] px-6 py-3 font-semibold text-white transition hover:bg-[#103B39] disabled:cursor-not-allowed disabled:opacity-50"
                 >
-
-                  <div className="flex items-center justify-between gap-3">
-
-                    <span className="text-xs font-semibold uppercase tracking-wider text-[#397653]">
-                      {angle.angle_type.replace("-", " ")}
-                    </span>
-
-                    {selectedAngle === index && (
-                      <span className="rounded-full bg-[#174D36] px-3 py-1 text-xs font-medium text-white">
-                        Selected
-                      </span>
-                    )}
-
-                  </div>
-
-                  <h3 className="mt-3 text-lg font-bold text-gray-900">
-                    {angle.angle_name}
-                  </h3>
-
-                  <p className="mt-3 text-sm leading-relaxed text-gray-700">
-                    {angle.marketing_message}
-                  </p>
-
-                  <div className="mt-5 rounded-lg bg-gray-50 p-4">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                      Pinterest hook
-                    </p>
-
-                    <p className="mt-2 text-sm font-medium text-gray-800">
-                      {angle.pinterest_hook}
-                    </p>
-                  </div>
-
-                  <div className="mt-4">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                      Target audience
-                    </p>
-
-                    <p className="mt-1 text-sm text-gray-700">
-                      {angle.target_audience}
-                    </p>
-                  </div>
-
+                  {isAnalysisApproved ? "Analysis Approved ✓" : "Approve Analysis"}
                 </button>
-              ))}
+              </div>
 
+              {isAnalysisApproved && (
+                <div className="rounded-xl border border-green-200 bg-green-50 p-4 text-sm text-green-800">
+                  Your product analysis has been approved. You can now generate your marketing angles.
+                </div>
+              )}
+
+              <button
+                type="button"
+                onClick={generateAngles}
+                disabled={!isAnalysisApproved || isGeneratingAngles}
+                className="w-full rounded-xl bg-[#174D36] px-6 py-4 font-semibold text-white transition hover:bg-[#236345] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isGeneratingAngles ? "Generating your marketing angles..." : "Generate Marketing Angles"}
+              </button>
+              {angleError && <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{angleError}</div>}
             </div>
           </div>
         )}
-        {selectedAngle !==null&&(
-          <div className="mt-6">
-            <button
-              type="button"
-              onClick={()=>{
-                const chosenAngle= marketingAngles[selectedAngle];
-                console.log("Selected Marketing Angle:", chosenAngle);
-              }}
-            className="w-full rounded-xl bg-[#174D36] px-6 py-4 font-semibold text-white transition hover:bg-[#236345]">
-              Continue with this angle →
-            </button>            
-        </div>
+
+
+        {/* Marketing angle cards */}
+        {marketingAngles.length > 0 && (
+          <div className="mt-10">
+            <div className="mb-6">
+              <p className="text-sm font-semibold uppercase tracking-wider text-[#397653]">Your marketing strategy</p>
+              <h2 className="mt-2 text-2xl font-bold">Three ways to reach your audience</h2>
+              <p className="mt-2 text-gray-600">Choose the marketing angle you want to develop into a Pinterest pin.</p>
+            </div>
+
+            <div className="grid gap-5">
+              {marketingAngles.map((angle, index) => (
+                <button
+                  key={`${angle.angle_type}-${index}`}
+                  type="button"
+                  onClick={() => {
+                    setSelectedAngle(index);
+                    setChosenAngle(null);
+                    setPinterestContent(null);
+                  }}
+                  className={`w-full rounded-2xl border-2 p-6 text-left transition ${selectedAngle === index ? "border-[#174D36] bg-[#EDF5EE] shadow-md" : "border-gray-200 bg-white hover:border-[#A8C6AF]"}`}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-[#397653]">{angle.angle_type.replace(/-/g, " ")}</span>
+                    {selectedAngle === index && <span className="rounded-full bg-[#174D36] px-3 py-1 text-xs font-medium text-white">Selected ✓</span>}
+                  </div>
+                  <h3 className="mt-3 text-lg font-bold text-gray-900">{angle.angle_name}</h3>
+
+                  <div className="mt-4">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Marketing message</p>
+                    <p className="mt-2 text-sm leading-relaxed text-gray-700">{angle.marketing_message}</p>
+                  </div>
+                  <div className="mt-5 rounded-lg bg-gray-50 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Pinterest hook</p>
+                    <p className="mt-2 text-sm font-medium text-gray-800">{angle.pinterest_hook}</p>
+                  </div>
+                  <div className="mt-4">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Target audience</p>
+                    <p className="mt-1 text-sm text-gray-700">{angle.target_audience}</p>
+                  </div>
+                  <div className="mt-4">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Why this audience would respond</p>
+                    <p className="mt-1 text-sm leading-relaxed text-gray-700">{angle.audience_motivation}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            {selectedAngle !== null && (
+              <button
+                type="button"
+                onClick={continueWithAngle}
+                className="mt-6 w-full rounded-xl bg-[#174D36] px-6 py-4 font-semibold text-white transition hover:bg-[#236345]"
+              >
+                Continue with this angle →
+              </button>
+            )}
+          </div>
+        )}
+
+
+        {/* Selected angle confirmation / Pinterest content stage placeholder */}
+        {chosenAngle && (
+          <div className="mt-8 rounded-2xl border border-[#A8C6AF] bg-white p-6 shadow-sm">
+            <p className="text-sm font-semibold uppercase tracking-wider text-[#397653]">Selected angle</p>
+            <h2 className="mt-2 text-xl font-bold">{chosenAngle.angle_name}</h2>
+            <p className="mt-2 text-gray-700">{chosenAngle.marketing_message}</p>
+            <p className="mt-3 text-sm text-gray-500">Next: generate Pinterest title, description, keywords, CTA and pin hook from this angle.</p>
+          </div>
         )}
       </section>
     </main>
   );
 }
-
