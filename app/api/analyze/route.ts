@@ -1,4 +1,3 @@
-
 import Anthropic from "@anthropic-ai/sdk";
 
 const anthropic = new Anthropic();
@@ -349,11 +348,16 @@ Keep the analysis clear, specific and useful for creating Pinterest marketing co
         });
 
     } catch (error) {
-        console.error("Error processing the request:", error);
+  console.error("Product analysis API error:", error);
 
-        return Response.json({
-            success: false,
-            message: "An error occurred while analysing the product."
-        }, { status: 500 });
-    }
-}
+  return Response.json(
+    {
+      success: false,
+      message:
+        error instanceof Error
+          ? error.message
+          : "Unknown error occurred during product analysis.",
+    },
+    { status: 500 }
+  );
+    }}
